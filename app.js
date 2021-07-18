@@ -17,11 +17,14 @@ const session = require('express-session');
 const passport = require("passport");
 passportLocalMongoose = require("passport-local-mongoose");
 
+
 //findorcreate
 const findOrCreate = require("mongoose-findorcreate");
 
 // googleOAuth
-var GoogleStrategy = require('passport-google-oauth20').Strategy;
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
+//facebook
+const FacebookStrategy = require('passport-facebook').Strategy;
 
 app.use(session({
     secret: "Thisisasecret.",
@@ -49,6 +52,7 @@ const userSchema = new mongoose.Schema({
     email: String,
     password: String,
     googleId: String,
+    facebookId: String,
     secret: String
 });
 
@@ -84,20 +88,40 @@ passport.use(new GoogleStrategy({
     });
     }
 ));
-
+passport.use(new FacebookStrategy({
+    clientID: process.env.APP_ID,
+    clientSecret: process.env.APP_SECRET,
+    callbackURL: "http://localhost:3000/auth/facebook/secrets"
+  }, function (accessToken, refreshToken, profile, cb) {
+    console.log(profile);
+    User.findOrCreate({ facebookId: profile.id }, function (err, user) {
+    return cb(err, user);
+  })
+}
+));
 
 app.get("/", function(req, res){
     res.render("home");
 });
 app.get("/auth/google", 
 passport.authenticate("google", {scope: ["profile"]})); 
-
-app.get("/auth/google/secrets", 
+app.get('/auth/google/secrets', 
   passport.authenticate('google', { failureRedirect: '/login' }),
   function(req, res) {
     // Successful authentication, redirect home.
     res.redirect("/secrets");
   });
+
+app.get('/auth/facebook',
+  passport.authenticate('facebook'));
+
+  app.get('/auth/facebook/secrets',
+  passport.authenticate('facebook', { failureRedirect: '/login' }),
+  function(req, res) {
+    // Successful authentication, redirect home.
+    res.redirect("/secrets");
+  });
+
 app.get("/login", function(req, res){
     res.render("login");
 });
@@ -129,6 +153,8 @@ app.get("/secrets", function(req,res){
         }
     });
 });
+
+
 app.get("/submit", function (req, res){
     if(req.isAuthenticated()){
         res.render("submit");
